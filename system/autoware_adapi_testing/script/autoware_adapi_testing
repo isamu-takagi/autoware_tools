@@ -2,4 +2,7 @@
 
 import autoware_adapi_testing.main
 
-autoware_adapi_testing.main.main()
+try:
+    autoware_adapi_testing.main.main()
+except KeyboardInterrupt:
+    print("shutdown complete")

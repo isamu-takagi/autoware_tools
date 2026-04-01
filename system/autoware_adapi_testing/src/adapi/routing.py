@@ -1,0 +1,69 @@
+# Copyright 2026 The Autoware Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from autoware_adapi_testing.adapi.qos import durable_qos
+from autoware_adapi_v1_msgs.msg import RouteState as RouteStateMsg
+from autoware_adapi_v1_msgs.srv import SetRoutePoints as SetRoutePointsSrv
+from rclpy.node import Node
+
+
+class Routing:
+    def __init__(self, node: Node):
+        self.set_route_points = SetRoutePoints(node)
+        self.state = RouteState(node)
+
+
+class SetRoutePoints:
+    def __init__(self, node: Node):
+        self.clock = node.get_clock()
+        self.stamp = None
+        self.future = None
+        self.client = node.create_client(SetRoutePointsSrv, "/api/routing/set_route_points")
+
+    def request(self, pose):
+        if not self.client.service_is_ready():
+            return False
+        req = SetRoutePointsSrv.Request()
+        req.header = pose.header
+        req.goal = pose.pose
+        self.stamp = self.clock.now()
+        self.future = self.client.call_async(req)
+        return True
+
+    def response(self):
+        if self.future is None:
+            return None
+        if not self.future.done():
+            return None
+        result = self.future.result()
+        self.stamp = None
+        self.future = None
+        return result
+
+
+class RouteState:
+    def __init__(self, node: Node):
+        self.sub = node.create_subscription(
+            RouteStateMsg, "/api/routing/state", self.callback, durable_qos()
+        )
+        self.msg = None
+
+    def callback(self, msg):
+        self.msg = msg
+
+    def is_received(self):
+        return self.msg is not None
+
+    def is_set(self):
+        return self.is_received() and self.msg.state == RouteStateMsg.SET

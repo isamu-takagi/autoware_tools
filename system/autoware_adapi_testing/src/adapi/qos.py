@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import autoware_adapi_testing.logic.entrypoint
-import rclpy
-
-
-def hello():
-    print("Hello, Autoware ADAPI Testing!")
+from rclpy.qos import QoSDurabilityPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
 
 
-def main(argv=None):
-    rclpy.init(args=argv)
-    rclpy.spin(autoware_adapi_testing.logic.entrypoint.Entrypoint())
-    rclpy.shutdown()
+def durable_qos(depth=1):
+    return QoSProfile(
+        depth=depth,
+        durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        reliability=QoSReliabilityPolicy.RELIABLE,
+    )
