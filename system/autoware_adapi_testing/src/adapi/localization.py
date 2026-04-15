@@ -56,3 +56,6 @@ class LocalizationState:
 
     def is_received(self):
         return self.msg is not None
+
+    def is_initialized(self):
+        return self.is_received() and self.msg.state == LocalizationInitializationState.INITIALIZED

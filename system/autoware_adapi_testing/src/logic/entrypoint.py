@@ -13,9 +13,10 @@
 # limitations under the License.
 
 from autoware_adapi_testing.adapi.localization import Localization
+from autoware_adapi_testing.adapi.operation_mode import OperationMode
 from autoware_adapi_testing.adapi.routing import Routing
-from autoware_adapi_testing.logic.event import Request
-from autoware_adapi_testing.logic.event import WaitCondition
+from autoware_adapi_testing.logic.event import CallEvent
+from autoware_adapi_testing.logic.event import WaitEvent
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from rclpy.node import Node
@@ -25,6 +26,7 @@ class ADAPI:
     def __init__(self, node: Node):
         self.localization = Localization(node)
         self.routing = Routing(node)
+        self.operation_mode = OperationMode(node)
 
 
 class Entrypoint(Node):
@@ -34,25 +36,29 @@ class Entrypoint(Node):
         self.api = ADAPI(self)
 
         self.tasks = []
-        self.tasks.append(WaitCondition(self.api.localization.state.is_received))
-        self.tasks.append(Request(self.api.localization.initialize.request, self.self_pose()))
-        self.tasks.append(WaitCondition(self.api.routing.state.is_received))
-        self.tasks.append(Request(self.api.routing.set_route_points.request, self.goal_pose()))
-        self.tasks.append(WaitCondition(self.api.routing.state.is_set))
-
-        # wait localization state
-        # WaitLocalizationState (state = aaa)
-        # is complete (state == aaa)
+        self.tasks.append(WaitEvent(self.api.localization.state.is_received))
+        self.tasks.append(CallEvent(self.api.localization.initialize.request, self.self_pose()))
+        self.tasks.append(WaitEvent(self.api.localization.state.is_initialized))
+        self.tasks.append(WaitEvent(self.api.routing.state.is_received))
+        self.tasks.append(CallEvent(self.api.routing.set_route_points.request, self.goal_pose()))
+        self.tasks.append(WaitEvent(self.api.routing.state.is_set))
+        self.tasks.append(WaitEvent(self.api.operation_mode.state.is_autonomous_available))
+        self.tasks.append(CallEvent(self.api.operation_mode.change_autonomous.request))
+        self.tasks.append(WaitEvent(self.api.routing.state.is_arrived))
+        # TODO: check vehicle position
 
     def on_timer(self):
-        if not self.tasks:
-            return
-        task = self.tasks[0]
-        print(type(task), task.is_complete())
-        if task.is_complete():
-            self.tasks.pop(0)
-        else:
-            task.execute()
+
+        while self.tasks:
+            task = self.tasks[0]
+            complete = task.is_complete()
+            print(task, complete)
+            if complete:
+                self.tasks.pop(0)
+                continue
+            else:
+                task.execute()
+                break
 
     def self_pose(self):
         pose = PoseWithCovarianceStamped()

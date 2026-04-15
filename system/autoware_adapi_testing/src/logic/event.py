@@ -17,9 +17,14 @@ class Event:
     pass
 
 
-class WaitCondition(Event):
+class WaitEvent(Event):
     def __init__(self, condition):
         self.condition = condition
+
+    def __str__(self):
+        cname = self.condition.__self__.__class__.__name__
+        fname = self.condition.__name__
+        return f"WaitEvent({cname}.{fname})"
 
     def execute(self):
         pass
@@ -28,22 +33,19 @@ class WaitCondition(Event):
         return self.condition()
 
 
-class Request(Event):
+class CallEvent(Event):
     def __init__(self, func, *args):
         self.func = func
         self.args = args
         self.done = False
+
+    def __str__(self):
+        cname = self.func.__self__.__class__.__name__
+        fname = self.func.__name__
+        return f"CallEvent({cname}.{fname})"
 
     def execute(self):
         self.done = self.func(*self.args)
 
     def is_complete(self):
         return self.done
-
-
-class WaitLocalizationState(Event):
-    def __init__(self, api):
-        self.api = api
-
-    def is_complete(self):
-        return self.api.msg is not None
